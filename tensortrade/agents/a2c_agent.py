@@ -178,6 +178,7 @@ class A2CAgent(Agent):
         eps_decay_steps: int = kwargs.get('eps_decay_steps', 200)
         entropy_c: int = kwargs.get('entropy_c', 0.0001)
         memory_capacity: int = kwargs.get('memory_capacity', 1000)
+        render_interval: int = kwargs.get('render_interval', 50)  # in steps, None for episode end render only
 
         memory = ReplayMemory(memory_capacity, transition_type=A2CTransition)
         episode = 0
@@ -189,14 +190,14 @@ class A2CAgent(Agent):
             n_episodes = np.iinfo(np.int32).max
 
         print('====      AGENT ID: {}      ===='.format(self.id))
+        self.env.max_episodes = n_episodes
+        self.env.max_steps = n_steps
 
         while episode < n_episodes and not stop_training:
             state = self.env.reset()
             done = False
+            steps_done = 0
 
-            print('====      EPISODE ID ({}/{}): {}      ===='.format(episode + 1,
-                                                                      n_episodes,
-                                                                      self.env.episode_id))
 
             while not done:
                 threshold = eps_end + (eps_start - eps_end) * np.exp(-steps_done / eps_decay_steps)
@@ -223,9 +224,15 @@ class A2CAgent(Agent):
 
                 if n_steps and steps_done >= n_steps:
                     done = True
-                    stop_training = True
+                    #stop_training = True
+                
+                if render_interval is not None and steps_done % render_interval == 0:
+                    self.env.render(episode)
 
             is_checkpoint = save_every and episode % save_every == 0
+
+            if not render_interval or steps_done < n_steps:
+                self.env.render(episode)  # render final state at episode end if not rendered earlier
 
             if save_path and (is_checkpoint or episode == n_episodes):
                 self.save(save_path, episode=episode)
